@@ -3,6 +3,8 @@
 #include <d3dcompiler.h>
 #include <Windows.h>
 #include <iostream>
+#include <vector>
+#include <fstream>
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 
@@ -15,6 +17,57 @@ void attach_console() {
 	else {
 		std::cerr << "Failed to attach a console!" << std::endl;
 	}
+}
+
+std::vector<unsigned int> read_bmp(std::string file_name) {
+	std::ifstream file(file_name, std::ios::in | std::ios::binary);
+	std::vector<unsigned int> img;
+
+	if (!file.is_open()) {
+		std::cout << "Error: File could not be opened!\n";
+		return std::vector<unsigned int>(1);
+	}
+
+	// Read BMP header
+	char header[54];
+	file.read(header, 54); // BMP headers are always 54 bytes
+
+	if (header[0] != 'B' || header[1] != 'M') {
+		std::cout << "Error: Not a valid BMP file!\n";
+		return std::vector<unsigned int>(1);
+	}
+
+	int width = *(int*)&header[18];
+	int height = *(int*)&header[22];
+	int bpp = *(short*)&header[28];
+
+	if (bpp != 24) {
+		std::cout << "Error: Only 24-bit BMP files are supported!\n";
+		return std::vector<unsigned int>(1);
+	}
+
+	int row_padded = (width * 3 + 3) & (~3);
+	std::vector<unsigned char> data(row_padded * height);
+	file.read(reinterpret_cast<char*>(data.data()), data.size());
+
+	img.resize(2 + width * height);
+	img[0] = width;
+	img[1] = height;
+
+	int pixel_idx = 2;
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			int i = y * row_padded + x * 3;
+			unsigned char b = data[i];
+			unsigned char g = data[i + 1];
+			unsigned char r = data[i + 2];
+
+			unsigned int pixel = (r << 16) | (g << 8) | b;
+			img[pixel_idx++] = pixel;
+		}
+	}
+
+	return img;
 }
 
 class Shader {
