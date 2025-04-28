@@ -3,8 +3,6 @@
 #include <Windows.h>
 #include <chrono>
 #include <algorithm>
-#include <fstream>
-#include <vector>
 #include "utils.hpp"
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS")
 
@@ -13,61 +11,6 @@ unsigned short width = 0;
 unsigned short height = 0;
 void* screen_mem = malloc(1920 * 1080 * sizeof(unsigned int));
 void* screen_z = malloc(1920 * 1080 * sizeof(float));
-
-std::vector<unsigned int> read_bmp(std::string file_name) {
-    std::ifstream file(file_name, std::ios::in | std::ios::binary);
-
-    if (!file.is_open()) {
-        std::cout << "Error: File could not be opened!" << std::endl;
-        std::vector<unsigned int> error(1);
-        return error;
-    }
-
-    unsigned char header[54];
-    file.read(reinterpret_cast<char*>(header), 54);
-
-    unsigned int width = *reinterpret_cast<unsigned int*>(&header[18]);
-    unsigned int height = *reinterpret_cast<unsigned int*>(&header[22]);
-    unsigned int depth = *reinterpret_cast<unsigned short*>(&header[28]);
-    unsigned int size = ((depth * width + 31) / 32) * 4;
-    std::vector<unsigned char> pixel_data(size * height);
-    
-    file.read(reinterpret_cast<char*>(pixel_data.data()), size * height);
-    file.close();
-
-    std::vector<unsigned int> tex(width * height + 2);
-    tex[0] = width;
-    tex[1] = height;
-
-    for (unsigned int y = 0; y < height; y++) {
-        for (unsigned int x = 0; x < width; x++) {
-            // BMPs are stored in BGR format
-            unsigned int idx = y * depth + x * (depth / 8);
-            unsigned char b = pixel_data[idx];
-            unsigned char g = pixel_data[idx + 1];
-            unsigned char r = pixel_data[idx + 2];
-
-            // Convert to RGBA format for the texture
-            tex[2 + (height - 1 - y) * width + x] = (r << 16) | (g << 8) | b;
-        }
-    }
-
-    return tex;
-}
-
-std::vector<unsigned int> create_test_texture(int width, int height) {
-    std::vector<unsigned int> tex(width * height + 2);
-    tex[0] = width;
-    tex[1] = height;
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            bool isWhite = ((x / 8) % 2) == ((y / 8) % 2);
-            tex[2 + y * width + x] = isWhite ? 0xFFFFFF : 0x0000FF; // White or blue
-        }
-    }
-    return tex;
-}
 
 template <typename T> T clamp(T value, T min, T max) {
     if (value < min) return min;
@@ -159,44 +102,23 @@ int WinMain(HINSTANCE h_inst, HINSTANCE p_inst, LPSTR lpcmdln, int n_cmd_show) {
 
     // THE POSITIONS NEED TO BE CLOCKWISE (CW)
     unsigned int positions[] = {
-        300, 400, 10,
-        1000, 100, 10,
-        1600, 1000, 10,
-        
-        100, 200, 20,
-        1000, 200, 20,
-        300, 600, 20,
-        
-        0, 0, 30,
-        600, 600, 30,
-        0, 600, 30
+        0, 0, 0,
+        1920, 0, 0,
+        0, 1080, 0
     };
 
     float colors[] = {
-        1.0f, 0.0f, 0.0f, 0.1f,
-        0.0f, 1.0f, 0.0f, 0.8f,
-        0.0f, 0.0f, 1.0f, 0.1f, 1.0f,
-        
-        0.0f, 1.0f, 1.0f, 1.0f,
-        0.5f, 1.0f, 0.0f, 1.0f,
-        0.5f, 0.0f, 1.0f, 1.0f, 1.0f,
-
-        0.0f, 0.0f, 0.0f, 1.0f,
-        0.5f, 1.0f, 0.0f, 1.0f,
-        0.0f, 1.0f, 0.0f, 1.0f, 0.0f
+        0.0f, 1.0f, 0.0f, 1.0f, // TOP LEFT
+        1.0f, 1.0f, 0.0f, 1.0f, // TOP RIGHT
+        0.0f, 0.0f, 0.0f, 1.0f, 0.0f // BOTTOM LEFT
     };
 
     unsigned int misc[] = {
         width, height, triangle_count
     }; // Screen width, screen height, triangle count
 
-    std::vector<unsigned int> tex_vector = create_test_texture(256, 256);
+    std::vector<unsigned int> tex_vector = read_bmp("dummy.bmp"); // ONLY 24-BIT MS-PAINT BMP TEXTURES SUPPORTED!
     unsigned int* tex = tex_vector.data();
-
-    std::cout << "Texture size: " << tex[0] << "x" << tex[1] << std::endl;
-    std::cout << "Top-left pixel: " << std::hex << tex[2] << std::dec << std::endl;
-    std::cout << "Center pixel: " << std::hex << tex[2 + (tex[1] / 2) * tex[0] + tex[0] / 2] << std::dec << std::endl;
-    std::cout << "Bottom-right pixel: " << std::hex << tex[2 + (tex[1] - 1) * tex[0] + tex[0] - 1] << std::dec << std::endl;
 
     Shader shader;
     HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &device, &level, &ctx);
@@ -294,6 +216,12 @@ int WinMain(HINSTANCE h_inst, HINSTANCE p_inst, LPSTR lpcmdln, int n_cmd_show) {
     if (compute_shader) compute_shader->Release();
     if (ctx) ctx->Release();
     if (device) device->Release();
+    if (buf1) buf1->Release();
+    if (buf2) buf2->Release();
+    if (buf3) buf3->Release();
+    if (buf4) buf4->Release();
+    if (buf5) buf5->Release();
+    if (buf6) buf6->Release();
 
 	return 0;
 }
