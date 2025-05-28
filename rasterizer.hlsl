@@ -1,6 +1,6 @@
 RWBuffer<unsigned int> screen_buf : register(u0);
 RWBuffer<float> z_buf : register(u1);
-RWBuffer<unsigned int> positions : register(u2);
+RWBuffer<float> positions : register(u2);
 RWBuffer<float> colors : register(u3);
 RWBuffer<unsigned int> misc : register(u4);
 RWBuffer<unsigned int> texture_ : register(u5);
@@ -43,22 +43,23 @@ void main(uint3 threadID : SV_DispatchThreadID, uint3 groupID : SV_GroupID) {
         for (unsigned int x = minx; x < maxx; x++) {
             for (unsigned int y = miny; y < maxy; y++) {
                 float denom = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
-                if (denom == 0) continue;
+                if (denom == 0)
+                    continue;
 
                 float l1 = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / denom;
                 float l2 = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / denom;
                 float l3 = 1.0 - l1 - l2;
-
+                
                 if (l1 >= 0 && l2 >= 0 && l3 >= 0) {
                     float z_interpolated = clamp(l1 * z1 + l2 * z2 + l3 * z3, 0.0f, 255.0f);
-
+                    
                     if ((z_buf[y * width + x] > z_interpolated) && mode == 1.0f) {
                         float alpha = clamp(l1 * color1.a + l2 * color2.a + l3 * color3.a, 0.0f, 1.0f);
                         float r = clamp(l1 * color1.r + l2 * color2.r + l3 * color3.r, 0.0f, 1.0f) * alpha + ((screen_buf[y * width + x] >> 16 & 0xFF) / 255.0f) * (1.0 - alpha);
                         float g = clamp(l1 * color1.g + l2 * color2.g + l3 * color3.g, 0.0f, 1.0f) * alpha + ((screen_buf[y * width + x] >> 8 & 0xFF) / 255.0f) * (1.0 - alpha);
                         float b = clamp(l1 * color1.b + l2 * color2.b + l3 * color3.b, 0.0f, 1.0f) * alpha + ((screen_buf[y * width + x] & 0xFF) / 255.0f) * (1.0 - alpha);
 
-                        screen_buf[y * width + x] = (int) (r * 255) << 16 | (int) (g * 255) << 8 | (int) (b * 255);
+                        screen_buf[(unsigned int) (y * width + x)] = (int) (r * 255) << 16 | (int) (g * 255) << 8 | (int) (b * 255);
                         z_buf[y * width + x] = z_interpolated;
                     } else if ((z_buf[y * width + x] > z_interpolated) && mode == 0.0f) {
                         float u = l1 * color1.x + l2 * color2.x + l3 * color3.x;
@@ -66,15 +67,15 @@ void main(uint3 threadID : SV_DispatchThreadID, uint3 groupID : SV_GroupID) {
                         u = clamp(u, 0.0f, 1.0f);
                         v = clamp(v, 0.0f, 1.0f);
                         
-                        unsigned int tx = clamp((uint)(u * texture_[0]), 0u, texture_[0] - 1u);
-                        unsigned int ty = clamp((uint)(v * texture_[1]), 0u, texture_[1] - 1u);
+                        unsigned int tx = clamp((uint) (u * texture_[0]), 0u, texture_[0] - 1u);
+                        unsigned int ty = clamp((uint) (v * texture_[1]), 0u, texture_[1] - 1u);
                         unsigned int tex_color = texture_[2 + ty * texture_[0] + tx];
                         float alpha = clamp(l1 * color1.a + l2 * color2.a + l3 * color3.a, 0.0f, 1.0f);
                         float r = ((tex_color >> 16) & 0xFF) * alpha / 255.0f + ((screen_buf[y * width + x] >> 16 & 0xFF) / 255.0f) * (1.0 - alpha);
                         float g = ((tex_color >> 8) & 0xFF) * alpha / 255.0f + ((screen_buf[y * width + x] >> 8 & 0xFF) / 255.0f) * (1.0 - alpha);
                         float b = ((tex_color) & 0xFF) * alpha / 255.0f + ((screen_buf[y * width + x] & 0xFF) / 255.0f) * (1.0 - alpha);
                         
-                        screen_buf[y * width + x] = (int) (r * 255) << 16 | (int) (g * 255) << 8 | (int) (b * 255);
+                        screen_buf[(unsigned int) (y * width + x)] = (int) (r * 255) << 16 | (int) (g * 255) << 8 | (int) (b * 255);
                         z_buf[y * width + x] = z_interpolated;
                     }
                 }
