@@ -5,8 +5,23 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <chrono>
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
+
+template<typename T> std::vector<T> add_em(T* x, int size, int more) { // Add empty memory!
+	std::vector<T> y(size + more);
+
+	for (unsigned int i = 0; i < (size / sizeof(T)); i++) {
+		y[i] = x[i];
+	}
+
+	for (unsigned int i = size / sizeof(T); i < (more / sizeof(T) + size / sizeof(T)); i++) {
+		y[i] = 1;
+	}
+
+	return y;
+}
 
 void attach_console() {
 	if (AllocConsole()) {
@@ -129,23 +144,31 @@ public:
 		return device->CreateUnorderedAccessView(buf, &UAV_desc, UAV);
 	}
 
+	HRESULT create_SRV(ID3D11Resource* buf, ID3D11ShaderResourceView** SRV, unsigned int size, D3D11_SRV_DIMENSION dimension) {
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRV_desc = { };
+		SRV_desc.Format = DXGI_FORMAT_UNKNOWN;
+		SRV_desc.ViewDimension = dimension;
+		SRV_desc.Buffer.NumElements = size;
+		SRV_desc.Buffer.FirstElement = 0;
+
+		return device->CreateShaderResourceView(buf, &SRV_desc, SRV);
+	}
+
 	template<typename T> T* retreive_D3D11_process(ID3D11Resource* CPU_buf, ID3D11Resource* GPU_buf) {
 		D3D11_MAPPED_SUBRESOURCE map_r = { };
 		ctx->CopyResource(CPU_buf, GPU_buf);
-		HRESULT hr = ctx->Map(CPU_buf, 0, D3D11_MAP_READ, 0, &map_r);
 
+		HRESULT hr = ctx->Map(CPU_buf, 0, D3D11_MAP_READ, 0, &map_r);
+		
 		if (FAILED(hr)) {
 			std::cout << "Mapping failed. HRESULT: " << std::hex << hr << "\n";
 			return 0;
 		}
 
-		if (SUCCEEDED(hr)) {
-			T* dat = (T*)map_r.pData;
-			ctx->Unmap(CPU_buf, 0);
+		T* dat = (T*)map_r.pData;
+		ctx->Unmap(CPU_buf, 0);
 
-			return dat;
-		}
-
-		return 0;
+		return dat;
 	}
 };
+
